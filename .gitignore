@@ -194,5 +194,5 @@ pip-selfcheck.json
 /data/raw/*
 /data/sparql/*
 
-node_modules/
-.idea/
+app/server/node_modules/
+.idea/*
