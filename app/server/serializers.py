@@ -69,17 +69,30 @@ class Seq2seqAnnotationSerializer(serializers.ModelSerializer):
 
 class ClassificationDocumentSerializer(serializers.ModelSerializer):
     annotations = serializers.SerializerMethodField()
+    doc_labels = serializers.SerializerMethodField()
 
     def get_annotations(self, instance):
         request = self.context.get('request')
         if request:
-            annotations = instance.doc_annotations.filter(user=request.user)
+            if (request.user.username != 'admin'):
+                annotations = instance.doc_annotations.filter(user=request.user)
+            elif (request.user.username == 'admin'):
+                annotations = instance.doc_annotations.all()
+            # print(request.user)
+            # print(request.user.username)
             serializer = DocumentAnnotationSerializer(annotations, many=True)
+            return serializer.data
+
+    def get_doc_labels(self, instance):
+        request = self.context.get('request')
+        if request:
+            labels = instance.doc_labels.all()
+            serializer = LabelSerializer(labels, many=True)
             return serializer.data
 
     class Meta:
         model = Document
-        fields = ('id', 'text', 'annotations')
+        fields = ('id', 'text', 'doc_labels', 'annotations')
 
 
 class SequenceDocumentSerializer(serializers.ModelSerializer):

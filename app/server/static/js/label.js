@@ -10,7 +10,7 @@ const vm = new Vue({
     labelText: '',
     selectedShortkey: '',
     backgroundColor: '#209cee',
-    textColor: '#ffffff',
+      textColor: '#000000',
   },
 
   methods: {
@@ -39,7 +39,7 @@ const vm = new Vue({
       this.labelText = '';
       this.selectedShortkey = '';
       this.backgroundColor = '#209cee';
-      this.textColor = '#ffffff';
+        this.textColor = '#000000';
     },
   },
   created() {

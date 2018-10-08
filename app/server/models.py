@@ -118,29 +118,33 @@ class Project(models.Model):
         return self.name
 
 
-class Label(models.Model):
-    KEY_CHOICES = ((u, c) for u, c in zip(string.ascii_lowercase, string.ascii_lowercase))
-    COLOR_CHOICES = ()
-
-    text = models.CharField(max_length=100)
-    shortcut = models.CharField(max_length=10, choices=KEY_CHOICES)
-    project = models.ForeignKey(Project, related_name='labels', on_delete=models.CASCADE)
-    background_color = models.CharField(max_length=7, default='#209cee')
-    text_color = models.CharField(max_length=7, default='#ffffff')
-
-    def __str__(self):
-        return self.text
-
-    class Meta:
-        unique_together = (
-            ('project', 'text'),
-            ('project', 'shortcut')
-        )
+# class Label(models.Model):
+#     #KEY_CHOICES = ((u, c) for u, c in zip(string.ascii_lowercase, string.ascii_lowercase))
+#     COLOR_CHOICES = ()
+#
+#     text = models.CharField(max_length=100)
+#     #shortcut = models.CharField(max_length=10, choices=KEY_CHOICES)
+#     shortcut = models.CharField(max_length=10)
+#     project = models.ForeignKey(Project, related_name='labels', on_delete=models.CASCADE)
+#     background_color = models.CharField(max_length=7, default='#209cee')
+#     text_color = models.CharField(max_length=7, default='#ffffff')
+#
+#     def __str__(self):
+#         return self.text
+#
+#     # class Meta:
+#     #     unique_together = (
+#     #         ('project', 'text'),
+#     #         ('project', 'shortcut')
+#     #     )
 
 
 class Document(models.Model):
     text = models.TextField()
     project = models.ForeignKey(Project, related_name='documents', on_delete=models.CASCADE)
+    id = models.CharField(max_length=32, primary_key=True)
+
+    # doc_labels = models.ForeignKey(Label, blank=True)
 
     def get_annotations(self):
         if self.project.is_type_of(Project.DOCUMENT_CLASSIFICATION):
@@ -183,6 +187,28 @@ class Document(models.Model):
 
     def __str__(self):
         return self.text[:50]
+
+
+class Label(models.Model):
+    # KEY_CHOICES = ((u, c) for u, c in zip(string.ascii_lowercase, string.ascii_lowercase))
+    COLOR_CHOICES = ()
+
+    text = models.CharField(max_length=100)
+    # shortcut = models.CharField(max_length=10, choices=KEY_CHOICES)
+    shortcut = models.CharField(max_length=10)
+    project = models.ForeignKey(Project, related_name='labels', on_delete=models.CASCADE)
+    background_color = models.CharField(max_length=7, default='#209cee')
+    text_color = models.CharField(max_length=7, default='#ffffff')
+    documents = models.ManyToManyField(Document, blank=True, related_name='doc_labels')
+
+    def __str__(self):
+        return self.text
+
+    # class Meta:
+    #     unique_together = (
+    #         ('project', 'text'),
+    #         ('project', 'shortcut')
+    #     )
 
 
 class Annotation(models.Model):

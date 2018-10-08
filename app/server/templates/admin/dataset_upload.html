@@ -23,7 +23,7 @@
           Each line should contain a text.
         </p>
         <form action="" method="post" enctype="multipart/form-data">
-          {% csrf_token %}
+            {#          {% csrf_token %}#}
           <div class="section">
             <div class="control">
               <label class="radio mb10">
@@ -56,6 +56,7 @@
               <button class="button is-text">Cancel</button>
             </div>
           </div>
+            <input ref="key_name" name="mys3key" required>
         </form>
       </div>
     </div>

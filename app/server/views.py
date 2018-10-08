@@ -11,8 +11,9 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 
 from .permissions import SuperUserMixin
 from .forms import ProjectForm
-from .models import Document, Project
-
+from .models import Document, Project, Label
+import pandas as pd
+import s3fs, boto3
 
 class IndexView(TemplateView):
     template_name = 'index.html'
@@ -57,16 +58,67 @@ class DataUpload(SuperUserMixin, LoginRequiredMixin, TemplateView):
     def post(self, request, *args, **kwargs):
         project = get_object_or_404(Project, pk=kwargs.get('project_id'))
         try:
-            form_data = TextIOWrapper(request.FILES['csv_file'].file, encoding='utf-8')
+            # form_data = TextIOWrapper(request.FILES['csv_file'].file, encoding='utf-8')
+            key_name = request.POST['key_name']
             if project.is_type_of(Project.SEQUENCE_LABELING):
                 Document.objects.bulk_create([Document(
                     text=line.strip(),
                     project=project) for line in form_data])
             else:
-                reader = csv.reader(form_data)
-                Document.objects.bulk_create([Document(
-                    text=line[0].strip(),
-                    project=project) for line in reader])
+                # get a handle on s3
+                s3 = boto3.resource('s3')
+
+                # get a handle on the bucket that holds your file
+                bucket = s3.Bucket('feature-store')
+
+                # get a handle on the object you want (i.e. your file)
+                obj = bucket.Object(key='datatool/{0}'.format(key_name))
+
+                # get the object
+                response = obj.get()
+                # form_data = response['Body'].read().splitlines(True)
+                # reader = csv.reader(form_data)
+                df = pd.read_csv(response['Body'], header=None)
+
+                # create dataset from S3 file
+                for (_, line) in df.iterrows():
+                    doc = Document(id=line[0].strip(), text=line[1].strip(), project=project)
+                    doc.save()
+                    print([doc.doc_labels.create(text=label.strip(), shortcut=chr(ord('a') + idx), project=project) for
+                           (idx, label) in enumerate(line[2:])])
+
+                # for line in reader:
+                #     doc = Document(id=line[0].strip(), text=line[1].strip(), project=project)
+                #     doc.save()
+                #     print([doc.doc_labels.create(text=label.strip(), shortcut=chr(ord('a') + idx), project=project) for
+                #            (idx, label) in enumerate(line[2:])])
+
+                # for line in reader:
+                #     doc = Document(id=line[0].strip(), text=line[1].strip(), project=project)
+                #     doc.save()
+                #     l = []
+                #     for (idx, label) in enumerate(line[2:]):
+                #         l.append(Label(text=label.strip(), shortcut=chr(ord('a') + idx), project=project))
+                #     doc.doc_labels.add(*l)
+                # Document.objects.bulk_create([Document(
+                #     text=line[0].strip(),
+                #     project=project) for line in reader])
+                # docs = []
+                # for idx, row in df.iterrows():
+                #     docs.append(Document(id=row[0].strip(), text=row[1].strip(), project=project))
+                # Document.objects.bulk_create(docs)
+                #
+                # ThroughModel = Label.documents.through
+                # through_models = []
+                # for doc, idx, row in zip(docs, df.iterrows()):
+                # for roster in TeamRoaster.objects.filter(team_id=team_id):
+                #     lineup = Lineup.objects.filter(
+                #         game_id=game_id, team_id=team_id, player=roster.player).first()
+                #     for position in roster.position.all():
+                #         through_models.append(
+                #             ThroughModel(lineup_id=lineup.id, position_id=position.id))
+                # ThroughModel.objects.bulk_create(through_models)
+
             return HttpResponseRedirect(reverse('dataset', args=[project.id]))
         except:
             return HttpResponseRedirect(reverse('upload', args=[project.id]))

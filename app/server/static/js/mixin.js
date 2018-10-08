@@ -51,6 +51,14 @@ const annotationMixin = {
         this.next = response.data.next;
         this.prev = response.data.previous;
         this.count = response.data.count;
+          // console.log('in search');
+          // console.log(response.data.results);
+          // console.log(response.data.results[0]);
+          // console.log(response.data.results[0].doc_labels);
+          // console.log(response.data.results[0].doc_labels[0]);
+          // console.log(this.labels);
+          // console.log(typeof response.data.results[0].doc_labels);
+          this.labels = response.data.results[0].doc_labels;
         this.annotations = [];
         for (let i = 0; i < this.docs.length; i++) {
           const doc = this.docs[i];
@@ -100,9 +108,11 @@ const annotationMixin = {
   },
 
   created() {
-    HTTP.get('labels').then((response) => {
-      this.labels = response.data;
-    });
+      // HTTP.get('labels').then((response) => {
+      //   // console.log('in created');
+      //   // console.log(response.data);
+      //   this.labels = response.data;
+      // });
     HTTP.get().then((response) => {
       this.guideline = response.data.guideline;
     });
