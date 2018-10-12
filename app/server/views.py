@@ -14,6 +14,7 @@ from .forms import ProjectForm
 from .models import Document, Project, Label
 import pandas as pd
 import s3fs, boto3
+from django.views.decorators.csrf import csrf_exempt
 
 class IndexView(TemplateView):
     template_name = 'index.html'
@@ -55,10 +56,11 @@ class GuidelineView(SuperUserMixin, LoginRequiredMixin, TemplateView):
 class DataUpload(SuperUserMixin, LoginRequiredMixin, TemplateView):
     template_name = 'admin/dataset_upload.html'
 
+    @csrf_exempt
     def post(self, request, *args, **kwargs):
         project = get_object_or_404(Project, pk=kwargs.get('project_id'))
         try:
-            # form_data = TextIOWrapper(request.FILES['csv_file'].file, encoding='utf-8')
+            #form_data = TextIOWrapper(request.FILES['csv_file'].file, encoding='utf-8')
             key_name = request.POST['key_name']
             if project.is_type_of(Project.SEQUENCE_LABELING):
                 Document.objects.bulk_create([Document(
@@ -67,18 +69,20 @@ class DataUpload(SuperUserMixin, LoginRequiredMixin, TemplateView):
             else:
                 # get a handle on s3
                 s3 = boto3.resource('s3')
+                print(s3)
 
                 # get a handle on the bucket that holds your file
-                bucket = s3.Bucket('feature-store')
+                bucket = s3.Bucket('go-mmt-data-science')
 
                 # get a handle on the object you want (i.e. your file)
-                obj = bucket.Object(key='datatool/{0}'.format(key_name))
+                obj = bucket.Object(key='chat_bot/tool_data/{0}'.format(key_name))
 
                 # get the object
                 response = obj.get()
                 # form_data = response['Body'].read().splitlines(True)
                 # reader = csv.reader(form_data)
                 df = pd.read_csv(response['Body'], header=None)
+                print(df.shape)
 
                 # create dataset from S3 file
                 for (_, line) in df.iterrows():
@@ -87,11 +91,11 @@ class DataUpload(SuperUserMixin, LoginRequiredMixin, TemplateView):
                     print([doc.doc_labels.create(text=label.strip(), shortcut=chr(ord('a') + idx), project=project) for
                            (idx, label) in enumerate(line[2:])])
 
-                # for line in reader:
-                #     doc = Document(id=line[0].strip(), text=line[1].strip(), project=project)
-                #     doc.save()
-                #     print([doc.doc_labels.create(text=label.strip(), shortcut=chr(ord('a') + idx), project=project) for
-                #            (idx, label) in enumerate(line[2:])])
+                #for line in reader:
+                #    doc = Document(id=line[0].strip(), text=line[1].strip(), project=project)
+                #    doc.save()
+                #    print([doc.doc_labels.create(text=label.strip(), shortcut=chr(ord('a') + idx), project=project) for
+                #           (idx, label) in enumerate(line[2:])])
 
                 # for line in reader:
                 #     doc = Document(id=line[0].strip(), text=line[1].strip(), project=project)
