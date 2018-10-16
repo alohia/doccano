@@ -1,4 +1,5 @@
 import string
+from datetime import datetime
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.urls import reverse
@@ -19,7 +20,7 @@ class Project(models.Model):
 
     name = models.CharField(max_length=100)
     description = models.CharField(max_length=500)
-    guideline = models.TextField()
+    guideline = models.CharField(max_length=1000)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     users = models.ManyToManyField(User, related_name='projects')
@@ -140,7 +141,7 @@ class Project(models.Model):
 
 
 class Document(models.Model):
-    text = models.TextField()
+    text = models.CharField(max_length=65536)
     project = models.ForeignKey(Project, related_name='documents', on_delete=models.CASCADE)
     id = models.CharField(max_length=32, primary_key=True)
 
@@ -164,7 +165,7 @@ class Document(models.Model):
 
     def make_dataset_for_classification(self):
         annotations = self.get_annotations()
-        dataset = [[a.document.id, a.document.text, a.label.text, a.user.username]
+        dataset = [[a.document.id, a.document.text, a.label.text, a.user.username, a.created_at]
                    for a in annotations]
         return dataset
 
@@ -193,13 +194,13 @@ class Label(models.Model):
     # KEY_CHOICES = ((u, c) for u, c in zip(string.ascii_lowercase, string.ascii_lowercase))
     COLOR_CHOICES = ()
 
-    text = models.CharField(max_length=100)
+    text = models.CharField(max_length=200)
     # shortcut = models.CharField(max_length=10, choices=KEY_CHOICES)
     shortcut = models.CharField(max_length=10)
     project = models.ForeignKey(Project, related_name='labels', on_delete=models.CASCADE)
     background_color = models.CharField(max_length=7, default='#209cee')
     text_color = models.CharField(max_length=7, default='#ffffff')
-    documents = models.ManyToManyField(Document, blank=True, related_name='doc_labels')
+    documents = models.ForeignKey(Document, blank=True, related_name='doc_labels', on_delete=models.CASCADE)
 
     def __str__(self):
         return self.text
@@ -223,9 +224,11 @@ class Annotation(models.Model):
 class DocumentAnnotation(Annotation):
     document = models.ForeignKey(Document, related_name='doc_annotations', on_delete=models.CASCADE)
     label = models.ForeignKey(Label, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    class Meta:
-        unique_together = ('document', 'user', 'label')
+    # class Meta:
+    #     unique_together = ('document', 'user', 'label')
 
 
 class SequenceAnnotation(Annotation):
@@ -238,13 +241,13 @@ class SequenceAnnotation(Annotation):
         if self.start_offset >= self.end_offset:
             raise ValidationError('start_offset is after end_offset')
 
-    class Meta:
-        unique_together = ('document', 'user', 'label', 'start_offset', 'end_offset')
+    # class Meta:
+    #     unique_together = ('document', 'user', 'label', 'start_offset', 'end_offset')
 
 
 class Seq2seqAnnotation(Annotation):
     document = models.ForeignKey(Document, related_name='seq2seq_annotations', on_delete=models.CASCADE)
-    text = models.TextField()
+    text = models.CharField(max_length=5000)
 
-    class Meta:
-        unique_together = ('document', 'user', 'text')
+    # class Meta:
+    #     unique_together = ('document', 'user', 'text')

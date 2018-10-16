@@ -16,6 +16,7 @@ import pandas as pd
 import s3fs, boto3
 from django.views.decorators.csrf import csrf_exempt
 
+
 class IndexView(TemplateView):
     template_name = 'index.html'
 
@@ -60,72 +61,94 @@ class DataUpload(SuperUserMixin, LoginRequiredMixin, TemplateView):
     def post(self, request, *args, **kwargs):
         project = get_object_or_404(Project, pk=kwargs.get('project_id'))
         try:
-            #form_data = TextIOWrapper(request.FILES['csv_file'].file, encoding='utf-8')
-            key_name = request.POST['key_name']
-            if project.is_type_of(Project.SEQUENCE_LABELING):
-                Document.objects.bulk_create([Document(
-                    text=line.strip(),
-                    project=project) for line in form_data])
+            if 'key_name' in request.POST:
+                key_name = request.POST['key_name']
+                if project.is_type_of(Project.SEQUENCE_LABELING):
+                    Document.objects.bulk_create([Document(
+                        text=line.strip(),
+                        project=project) for line in form_data])
+                else:
+                    # get a handle on s3
+                    s3 = boto3.resource('s3')
+
+                    # get a handle on the bucket that holds your file
+                    bucket = s3.Bucket('go-mmt-data-science')
+
+                    # get a handle on the object you want (i.e. your file)
+                    obj = bucket.Object(key='chat_bot/tool_data/{0}'.format(key_name))
+
+                    # get the object
+                    response = obj.get()
+                    # form_data = response['Body'].read().splitlines(True)
+
+                    df = pd.read_csv(response['Body'], header=None)
+                    print(df.shape)
+
+                    # create dataset from S3 file
+                    doc_objs = []
+                    label_objs = []
+                    for (_, line) in df.iterrows():
+                        doc_objs.append(Document(id=line[0].strip(), text=line[1].strip(), project=project))
+                        for (idx, label) in enumerate(line[2:]):
+                            label_objs.append(Label(text=label.strip(), shortcut=chr(ord('a') + idx), project=project, documents_id=line[0].strip()))
+                    Document.objects.bulk_create(doc_objs)
+                    Label.objects.bulk_create(label_objs)
+
+                    # for (_, line) in df.iterrows():
+                    #     doc = Document(id=line[0].strip(), text=line[1].strip(), project=project)
+                    #     doc.save()
+                    #     print([doc.doc_labels.create(text=label.strip(), shortcut=chr(ord('a') + idx), project=project)
+                    #            for
+                    #            (idx, label) in enumerate(line[2:])])
             else:
-                # get a handle on s3
-                s3 = boto3.resource('s3')
-                print(s3)
-
-                # get a handle on the bucket that holds your file
-                bucket = s3.Bucket('go-mmt-data-science')
-
-                # get a handle on the object you want (i.e. your file)
-                obj = bucket.Object(key='chat_bot/tool_data/{0}'.format(key_name))
-
-                # get the object
-                response = obj.get()
-                # form_data = response['Body'].read().splitlines(True)
-                # reader = csv.reader(form_data)
-                df = pd.read_csv(response['Body'], header=None)
-                print(df.shape)
-
-                # create dataset from S3 file
-                for (_, line) in df.iterrows():
-                    doc = Document(id=line[0].strip(), text=line[1].strip(), project=project)
-                    doc.save()
-                    print([doc.doc_labels.create(text=label.strip(), shortcut=chr(ord('a') + idx), project=project) for
-                           (idx, label) in enumerate(line[2:])])
-
-                #for line in reader:
-                #    doc = Document(id=line[0].strip(), text=line[1].strip(), project=project)
-                #    doc.save()
-                #    print([doc.doc_labels.create(text=label.strip(), shortcut=chr(ord('a') + idx), project=project) for
-                #           (idx, label) in enumerate(line[2:])])
-
+                form_data = TextIOWrapper(request.FILES['csv_file'].file, encoding='utf-8')
+                reader = csv.reader(form_data)
+                doc_objs = []
+                label_objs = []
+                for line in reader:
+                    doc_objs.append(Document(id=line[0].strip(), text=line[1].strip(), project=project))
+                    for (idx, label) in enumerate(line[2:]):
+                        label_objs.append(Label(text=label.strip(), shortcut=chr(ord('a') + idx), project=project,
+                                                documents_id=line[0].strip()))
+                Document.objects.bulk_create(doc_objs)
+                Label.objects.bulk_create(label_objs)
                 # for line in reader:
                 #     doc = Document(id=line[0].strip(), text=line[1].strip(), project=project)
                 #     doc.save()
-                #     l = []
-                #     for (idx, label) in enumerate(line[2:]):
-                #         l.append(Label(text=label.strip(), shortcut=chr(ord('a') + idx), project=project))
-                #     doc.doc_labels.add(*l)
-                # Document.objects.bulk_create([Document(
-                #     text=line[0].strip(),
-                #     project=project) for line in reader])
-                # docs = []
-                # for idx, row in df.iterrows():
-                #     docs.append(Document(id=row[0].strip(), text=row[1].strip(), project=project))
-                # Document.objects.bulk_create(docs)
-                #
-                # ThroughModel = Label.documents.through
-                # through_models = []
-                # for doc, idx, row in zip(docs, df.iterrows()):
-                # for roster in TeamRoaster.objects.filter(team_id=team_id):
-                #     lineup = Lineup.objects.filter(
-                #         game_id=game_id, team_id=team_id, player=roster.player).first()
-                #     for position in roster.position.all():
-                #         through_models.append(
-                #             ThroughModel(lineup_id=lineup.id, position_id=position.id))
-                # ThroughModel.objects.bulk_create(through_models)
+                #     print([doc.doc_labels.create(text=label.strip(), shortcut=chr(ord('a') + idx), project=project) for
+                #            (idx, label) in enumerate(line[2:])])
 
             return HttpResponseRedirect(reverse('dataset', args=[project.id]))
         except:
             return HttpResponseRedirect(reverse('upload', args=[project.id]))
+
+        # for line in reader:
+        #     doc = Document(id=line[0].strip(), text=line[1].strip(), project=project)
+        #     doc.save()
+        #     l = []
+        #     for (idx, label) in enumerate(line[2:]):
+        #         l.append(Label(text=label.strip(), shortcut=chr(ord('a') + idx), project=project))
+        #     doc.doc_labels.add(*l)
+        # Document.objects.bulk_create([Document(
+        #     text=line[0].strip(),
+        #     project=project) for line in reader])
+        # docs = []
+        # for idx, row in df.iterrows():
+        #     docs.append(Document(id=row[0].strip(), text=row[1].strip(), project=project))
+        # Document.objects.bulk_create(docs)
+        #
+        # ThroughModel = Label.documents.through
+        # through_models = []
+        # for doc, idx, row in zip(docs, df.iterrows()):
+        # for roster in TeamRoaster.objects.filter(team_id=team_id):
+        #     lineup = Lineup.objects.filter(
+        #         game_id=game_id, team_id=team_id, player=roster.player).first()
+        #     for position in roster.position.all():
+        #         through_models.append(
+        #             ThroughModel(lineup_id=lineup.id, position_id=position.id))
+        # ThroughModel.objects.bulk_create(through_models)
+
+
 
 
 class DataDownload(SuperUserMixin, LoginRequiredMixin, View):

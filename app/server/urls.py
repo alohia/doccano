@@ -23,7 +23,7 @@ urlpatterns = [
     path('api/projects/<int:project_id>/docs/<str:doc_id>/annotations/<int:annotation_id>', AnnotationDetail.as_view(),
          name='ann'),
     path('projects/', ProjectsView.as_view(), name='projects'),
-    path('projects/<int:project_id>/download', DataDownload.as_view(), name='download'),
+    path('projects/<int:project_id>/download', csrf_exempt(DataDownload.as_view()), name='download'),
     path('projects/<int:project_id>/', ProjectView.as_view(), name='annotation'),
     path('projects/<int:project_id>/docs/', DatasetView.as_view(), name='dataset'),
     path('projects/<int:project_id>/docs/create', csrf_exempt(DataUpload.as_view()), name='upload'),
