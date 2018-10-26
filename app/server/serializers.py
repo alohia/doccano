@@ -74,9 +74,9 @@ class ClassificationDocumentSerializer(serializers.ModelSerializer):
     def get_annotations(self, instance):
         request = self.context.get('request')
         if request:
-            if (request.user.username != 'admin'):
+            if ((request.user.username != 'admin') and (request.user.username != 'deepika')):
                 annotations = instance.doc_annotations.filter(user=request.user)
-            elif (request.user.username == 'admin'):
+            elif ((request.user.username == 'admin') or (request.user.username == 'deepika')):
                 annotations = instance.doc_annotations.all()
             # print(request.user)
             # print(request.user.username)

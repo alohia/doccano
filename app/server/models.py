@@ -144,6 +144,9 @@ class Document(models.Model):
     text = models.CharField(max_length=65536)
     project = models.ForeignKey(Project, related_name='documents', on_delete=models.CASCADE)
     id = models.CharField(max_length=32, primary_key=True)
+    create_date = models.DateTimeField(default=datetime.now)
+    source = models.CharField(max_length=100, default='DS')
+
 
     # doc_labels = models.ForeignKey(Label, blank=True)
 
@@ -165,9 +168,9 @@ class Document(models.Model):
 
     def make_dataset_for_classification(self):
         annotations = self.get_annotations()
-        dataset = [[a.document.id, a.document.text, a.label.text, a.user.username, a.created_at]
+        data = [[a.document.id, a.document.create_date, a.document.source, a.document.text, a.label.text, a.user.username, a.created_at, a.updated_at]
                    for a in annotations]
-        return dataset
+        return data
 
     def make_dataset_for_sequence_labeling(self):
         annotations = self.get_annotations()

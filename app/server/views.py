@@ -81,15 +81,15 @@ class DataUpload(SuperUserMixin, LoginRequiredMixin, TemplateView):
                     response = obj.get()
                     # form_data = response['Body'].read().splitlines(True)
 
-                    df = pd.read_csv(response['Body'], header=None)
+                    df = pd.read_csv(response['Body'])
                     print(df.shape)
 
                     # create dataset from S3 file
                     doc_objs = []
                     label_objs = []
                     for (_, line) in df.iterrows():
-                        doc_objs.append(Document(id=line[0].strip(), text=line[1].strip(), project=project))
-                        for (idx, label) in enumerate(line[2:]):
+                        doc_objs.append(Document(id=line[0].strip(), create_date=pd.to_datetime(line[1].strip()), source=line[2].strip(), text=line[3].strip(), project=project))
+                        for (idx, label) in enumerate(line[4:]):
                             label_objs.append(Label(text=label.strip(), shortcut=chr(ord('a') + idx), project=project, documents_id=line[0].strip()))
                     Document.objects.bulk_create(doc_objs)
                     Label.objects.bulk_create(label_objs)
@@ -103,11 +103,13 @@ class DataUpload(SuperUserMixin, LoginRequiredMixin, TemplateView):
             else:
                 form_data = TextIOWrapper(request.FILES['csv_file'].file, encoding='utf-8')
                 reader = csv.reader(form_data)
+                next(reader, None)  # skip the headers
                 doc_objs = []
                 label_objs = []
                 for line in reader:
-                    doc_objs.append(Document(id=line[0].strip(), text=line[1].strip(), project=project))
-                    for (idx, label) in enumerate(line[2:]):
+                    doc_objs.append(Document(id=line[0].strip(), create_date=pd.to_datetime(line[1].strip()), source=line[2].strip(),
+                                             text=line[3].strip(), project=project))
+                    for (idx, label) in enumerate(line[4:]):
                         label_objs.append(Label(text=label.strip(), shortcut=chr(ord('a') + idx), project=project,
                                                 documents_id=line[0].strip()))
                 Document.objects.bulk_create(doc_objs)
@@ -162,6 +164,8 @@ class DataDownload(SuperUserMixin, LoginRequiredMixin, View):
         response['Content-Disposition'] = 'attachment; filename="{}.csv"'.format(filename)
 
         writer = csv.writer(response)
+        headers = [['doc_id', 'create_date', 'source', 'text', 'label', 'user', 'lab_created_at', 'lab_updated_at']]
+        writer.writerows(headers)
         for d in docs:
             writer.writerows(d.make_dataset())
 
