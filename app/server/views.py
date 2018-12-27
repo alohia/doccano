@@ -87,10 +87,15 @@ class DataUpload(SuperUserMixin, LoginRequiredMixin, TemplateView):
                     # create dataset from S3 file
                     doc_objs = []
                     label_objs = []
+                    doc_ids = {d.id for d in Document.objects.all()}
                     for (_, line) in df.iterrows():
-                        doc_objs.append(Document(id=line[0].strip(), create_date=pd.to_datetime(line[1].strip()), source=line[2].strip(), text=line[3].strip(), project=project))
-                        for (idx, label) in enumerate(line[4:]):
-                            label_objs.append(Label(text=label.strip(), shortcut=chr(ord('a') + idx), project=project, documents_id=line[0].strip()))
+                        if (line[0].strip() not in doc_ids):
+                            doc_objs.append(Document(id=line[0].strip(), create_date=pd.to_datetime(line[1].strip()),
+                                                     source=line[2].strip(), text=line[3].strip(), project=project))
+                            for (idx, label) in enumerate(line[4:]):
+                                label_objs.append(
+                                    Label(text=label.strip(), shortcut=chr(ord('a') + idx), project=project,
+                                          documents_id=line[0].strip()))
                     Document.objects.bulk_create(doc_objs)
                     Label.objects.bulk_create(label_objs)
 
@@ -106,12 +111,14 @@ class DataUpload(SuperUserMixin, LoginRequiredMixin, TemplateView):
                 next(reader, None)  # skip the headers
                 doc_objs = []
                 label_objs = []
+                doc_ids = {d.id for d in Document.objects.all()}
                 for line in reader:
-                    doc_objs.append(Document(id=line[0].strip(), create_date=pd.to_datetime(line[1].strip()), source=line[2].strip(),
-                                             text=line[3].strip(), project=project))
-                    for (idx, label) in enumerate(line[4:]):
-                        label_objs.append(Label(text=label.strip(), shortcut=chr(ord('a') + idx), project=project,
-                                                documents_id=line[0].strip()))
+                    if (line[0].strip() not in doc_ids):
+                        doc_objs.append(Document(id=line[0].strip(), create_date=pd.to_datetime(line[1].strip()),
+                                                 source=line[2].strip(), text=line[3].strip(), project=project))
+                        for (idx, label) in enumerate(line[4:]):
+                            label_objs.append(Label(text=label.strip(), shortcut=chr(ord('a') + idx), project=project,
+                                                    documents_id=line[0].strip()))
                 Document.objects.bulk_create(doc_objs)
                 Label.objects.bulk_create(label_objs)
                 # for line in reader:
@@ -121,7 +128,8 @@ class DataUpload(SuperUserMixin, LoginRequiredMixin, TemplateView):
                 #            (idx, label) in enumerate(line[2:])])
 
             return HttpResponseRedirect(reverse('dataset', args=[project.id]))
-        except:
+        except Exception as E:
+            print(E)
             return HttpResponseRedirect(reverse('upload', args=[project.id]))
 
         # for line in reader:

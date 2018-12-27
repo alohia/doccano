@@ -192,6 +192,9 @@ class Document(models.Model):
     def __str__(self):
         return self.text[:50]
 
+    class Meta:
+        unique_together = (('project', 'id'),)
+
 
 class Label(models.Model):
     # KEY_CHOICES = ((u, c) for u, c in zip(string.ascii_lowercase, string.ascii_lowercase))
